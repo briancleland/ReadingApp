@@ -151,7 +151,7 @@
 
                         var questionHTML = $('<li class="' + questionClass +'" id="question' + (count - 1) + '"></li>');
                         questionHTML.append('<div class="' + questionCountClass + '">Question <span class="current">' + count + '</span> of <span class="total">' + questionCount + '</span></div>');
-                        questionHTML.append('<h3>' + count + '. ' + question.q + '</h3>');
+                        questionHTML.append('<h3>' + question.q + '</h3>');
 
                         // Count the number of true values
                         var truths = 0;
@@ -341,6 +341,60 @@
                 }
             },
 
+            checkAnswer2: function(checkButton) {
+                var questionLI    = $($(checkButton).parents(_question)[0]),
+                    answerInputs  = questionLI.find('input:checked'),
+                    questionIndex = parseInt(questionLI.attr('id').replace(/(question)/, ''), 10),
+                    answers       = questions[questionIndex].a,
+                    selectAny     = questions[questionIndex].select_any ? questions[questionIndex].select_any : false;
+
+                // Collect the true answers needed for a correct response
+                var trueAnswers = [];
+                for (i in answers) {
+                    if (answers.hasOwnProperty(i)) {
+                        var answer = answers[i];
+
+                        if (answer.correct) {
+                            trueAnswers.push($('<div />').html(answer.option).text());
+                        }
+                    }
+                }
+
+                // NOTE: Collecting .text() for comparison aims to ensure that HTML entities
+                // and HTML elements that may be modified by the browser match up
+
+                // Collect the answers submitted
+                var selectedAnswers = [];
+                selectedAnswers.push( $(checkButton).text().replace(" ", "") );
+
+                if (plugin.config.preventUnanswered && selectedAnswers.length === 0) {
+                    alert('You must select at least one answer.');
+                    return false;
+                }
+
+                // Verify all/any true answers (and no false ones) were submitted
+                var correctResponse = plugin.method.compareAnswers(trueAnswers, selectedAnswers, selectAny);
+                
+                if (correctResponse) {
+                    questionLI.addClass(correctClass);
+                }
+                
+                // Remove Question Text
+                questionLI.find('h3').remove();
+
+                // Toggle appropriate response (either for display now and / or on completion)
+                questionLI.find(correctResponse ? _correctResponse : _incorrectResponse).show();
+
+                // If perQuestionResponseMessaging is enabled, toggle response and navigation now
+                if (plugin.config.perQuestionResponseMessaging) {
+                    $(checkButton).hide();
+                    questionLI.find(_answers).hide();
+                    questionLI.find(_responses).show();
+                    questionLI.find(_nextQuestionBtn).fadeIn(300);
+                    questionLI.find(_prevQuestionBtn).fadeIn(300);
+                }
+            },
+
             // Moves to the next question OR completes the quiz if on last question
             nextQuestion: function(nextButton) {
                 var currentQuestion = $($(nextButton).parents(_question)[0]),
@@ -495,6 +549,14 @@
                 e.preventDefault();
                 plugin.method.checkAnswer(this);
             });
+            
+            //////////////////////////////////////////
+            // Bind answers to "check answer" function
+            $(".question li").click( function(e) {
+                e.preventDefault();
+                plugin.method.checkAnswer2(this);
+            });
+            //////////////////////////////////////////
 
             // Bind "back" buttons
             $(_element + ' ' + _prevQuestionBtn).on('click', function(e) {
